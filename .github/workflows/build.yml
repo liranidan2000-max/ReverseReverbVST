@@ -120,14 +120,19 @@ jobs:
   # macOS Build + DMG Installer
   # ==========================================
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        run: >
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+          -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations -Wno-unguarded-availability-new"
+          -DCMAKE_C_FLAGS="-Wno-deprecated-declarations -Wno-unguarded-availability-new"
 
       - name: Build
         run: cmake --build build --config Release --target ReverseReverb_VST3 ReverseReverb_Standalone
