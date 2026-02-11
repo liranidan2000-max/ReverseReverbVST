@@ -1,0 +1,114 @@
+name: Build Windows VST3 & Installer
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --target ReverseReverb_VST3 ReverseReverb_Standalone
+
+      - name: Find built artifacts
+        shell: pwsh
+        run: |
+          Write-Host "=== Looking for VST3 ==="
+          Get-ChildItem -Recurse -Filter "*.vst3" build/ | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "=== Looking for EXE ==="
+          Get-ChildItem -Recurse -Filter "ReverseReverb.exe" build/ | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Prepare installer files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer/vst3
+          New-Item -ItemType Directory -Force -Path installer/standalone
+
+          # Copy VST3 bundle
+          $vst3 = Get-ChildItem -Recurse -Filter "ReverseReverb.vst3" build/ -Directory | Select-Object -First 1
+          if ($vst3) {
+            Copy-Item -Recurse $vst3.FullName installer/vst3/
+            Write-Host "VST3 copied: $($vst3.FullName)"
+          }
+
+          # Copy standalone exe
+          $exe = Get-ChildItem -Recurse -Filter "ReverseReverb.exe" build/ | Select-Object -First 1
+          if ($exe) {
+            Copy-Item $exe.FullName installer/standalone/
+            Write-Host "Standalone copied: $($exe.FullName)"
+          }
+
+      - name: Create NSIS installer script
+        shell: pwsh
+        run: |
+          @"
+          !include "MUI2.nsh"
+
+          Name "ReverseReverb"
+          OutFile "ReverseReverb-Setup.exe"
+          InstallDir "`$PROGRAMFILES\ReverseReverb"
+          RequestExecutionLevel admin
+
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+          !insertmacro MUI_LANGUAGE "English"
+
+          Section "VST3 Plugin" SecVST3
+            SetOutPath "`$COMMONFILES\VST3"
+            File /r "installer\vst3\ReverseReverb.vst3"
+          SectionEnd
+
+          Section "Standalone Application" SecStandalone
+            SetOutPath "`$INSTDIR"
+            File "installer\standalone\ReverseReverb.exe"
+            CreateShortcut "`$DESKTOP\ReverseReverb.lnk" "`$INSTDIR\ReverseReverb.exe"
+            CreateDirectory "`$SMPROGRAMS\ReverseReverb"
+            CreateShortcut "`$SMPROGRAMS\ReverseReverb\ReverseReverb.lnk" "`$INSTDIR\ReverseReverb.exe"
+            CreateShortcut "`$SMPROGRAMS\ReverseReverb\Uninstall.lnk" "`$INSTDIR\Uninstall.exe"
+            WriteUninstaller "`$INSTDIR\Uninstall.exe"
+          SectionEnd
+
+          Section "Uninstall"
+            RMDir /r "`$COMMONFILES\VST3\ReverseReverb.vst3"
+            RMDir /r "`$INSTDIR"
+            Delete "`$DESKTOP\ReverseReverb.lnk"
+            RMDir /r "`$SMPROGRAMS\ReverseReverb"
+          SectionEnd
+          "@ | Out-File -Encoding ASCII installer.nsi
+
+      - name: Build installer with NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-Windows-VST3
+          path: installer/vst3/
+
+      - name: Upload Standalone artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-Windows-Standalone
+          path: installer/standalone/
+
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-Windows-Installer
+          path: ReverseReverb-Setup.exe

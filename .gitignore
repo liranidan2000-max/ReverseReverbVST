@@ -1,0 +1,26 @@
+# Build output
+build/
+Builds/MacOSX/build/
+
+# macOS
+.DS_Store
+*.xcuserdata
+*.xcworkspacedata
+
+# JUCE / CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# IDE
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+
+# Backup files
+*.backup
+
+# Claude
+.claude/
