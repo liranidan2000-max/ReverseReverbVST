@@ -171,54 +171,34 @@ jobs:
 
       - name: Create DMG background
         run: |
-          pip3 install Pillow --quiet
-          python3 << 'PYEOF'
-          from PIL import Image, ImageDraw, ImageFont
+          # Create background using macOS built-in tools (no Pillow needed)
+          python3 -c "
+          import struct, zlib
 
           w, h = 660, 400
-          img = Image.new('RGB', (w, h))
-
-          # Purple gradient background
+          # Build raw RGB pixels
+          raw = bytearray()
           for y in range(h):
+              raw.append(0)  # PNG filter: None
               t = y / h
-              r = int(15 + t * 30)
-              g = int(5 + t * 15)
-              b = int(35 + (1-t) * 45)
               for x in range(w):
-                  img.putpixel((x, y), (r, g, b))
+                  r = int(15 + t * 30)
+                  g = int(5 + t * 15)
+                  b = int(35 + (1 - t) * 45)
+                  raw.extend([r, g, b])
 
-          draw = ImageDraw.Draw(img)
+          # Write minimal PNG
+          def chunk(ctype, data):
+              c = ctype + data
+              return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
 
-          # Arrow from left to right
-          arrow_y = 230
-          # Arrow line
-          for thickness in range(-2, 3):
-              draw.line([(180, arrow_y + thickness), (460, arrow_y + thickness)], fill=(180, 130, 255))
-          # Arrow head
-          for i in range(20):
-              draw.line([(460 - i, arrow_y - i), (460 - i, arrow_y + i)], fill=(180, 130, 255))
-
-          # Title text
-          try:
-              title_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
-              sub_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-          except:
-              title_font = ImageFont.load_default()
-              sub_font = ImageFont.load_default()
-
-          draw.text((w//2, 40), "ReverseReverb", fill=(220, 180, 255), font=title_font, anchor='mt')
-          draw.text((w//2, 75), "Drag to install", fill=(160, 140, 200), font=sub_font, anchor='mt')
-
-          # Bottom labels
-          draw.text((130, 330), "VST3 Plugin", fill=(160, 140, 200), font=sub_font, anchor='mt')
-          draw.text((330, 330), "Standalone App", fill=(160, 140, 200), font=sub_font, anchor='mt')
-          draw.text((130, 350), "→ VST3 Folder", fill=(120, 100, 170), font=sub_font, anchor='mt')
-          draw.text((330, 350), "→ Applications", fill=(120, 100, 170), font=sub_font, anchor='mt')
-          draw.text((530, 350), "Install Targets", fill=(120, 100, 170), font=sub_font, anchor='mt')
-
-          img.save('dmg-background.png')
-          print("DMG background created")
-          PYEOF
+          with open('dmg-background.png', 'wb') as f:
+              f.write(b'\x89PNG\r\n\x1a\n')
+              f.write(chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)))
+              f.write(chunk(b'IDAT', zlib.compress(bytes(raw), 9)))
+              f.write(chunk(b'IEND', b''))
+          print('DMG background created: %dx%d' % (w, h))
+          "
 
       - name: Create professional DMG
         run: |
