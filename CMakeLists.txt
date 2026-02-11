@@ -26,6 +26,9 @@ juce_add_plugin(ReverseReverb
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
+# Generate JuceHeader.h (needed because source files use #include <JuceHeader.h>)
+juce_generate_juce_header(ReverseReverb)
+
 target_sources(ReverseReverb
     PRIVATE
         Source/PluginProcessor.cpp
