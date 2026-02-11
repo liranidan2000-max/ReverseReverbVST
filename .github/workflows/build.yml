@@ -148,6 +148,9 @@ jobs:
           echo "=== Looking for .app ==="
           find build -name "*.app" -type d
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Prepare DMG content
         run: |
           mkdir -p dmg-content
@@ -166,27 +169,96 @@ jobs:
             echo "App copied: $APP_PATH"
           fi
 
-          # Create installation instructions
-          cat > dmg-content/INSTALL.txt << 'HEREDOC'
-          ReverseReverb - Installation Guide
-          ===================================
-
-          VST3 Plugin:
-            Copy "ReverseReverb.vst3" to:
-            /Library/Audio/Plug-Ins/VST3/
-
-          Standalone App:
-            Drag "ReverseReverb.app" to your Applications folder.
-
-          After installing, restart your DAW to detect the plugin.
-          HEREDOC
-
-      - name: Create DMG
+      - name: Create DMG background
         run: |
-          hdiutil create -volname "ReverseReverb" \
-            -srcfolder dmg-content \
-            -ov -format UDZO \
-            ReverseReverb-macOS.dmg
+          python3 << 'PYEOF'
+          from PIL import Image, ImageDraw, ImageFont
+
+          w, h = 660, 400
+          img = Image.new('RGB', (w, h))
+
+          # Purple gradient background
+          for y in range(h):
+              t = y / h
+              r = int(15 + t * 30)
+              g = int(5 + t * 15)
+              b = int(35 + (1-t) * 45)
+              for x in range(w):
+                  img.putpixel((x, y), (r, g, b))
+
+          draw = ImageDraw.Draw(img)
+
+          # Arrow from left to right
+          arrow_y = 230
+          # Arrow line
+          for thickness in range(-2, 3):
+              draw.line([(180, arrow_y + thickness), (460, arrow_y + thickness)], fill=(180, 130, 255))
+          # Arrow head
+          for i in range(20):
+              draw.line([(460 - i, arrow_y - i), (460 - i, arrow_y + i)], fill=(180, 130, 255))
+
+          # Title text
+          try:
+              title_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+              sub_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
+          except:
+              title_font = ImageFont.load_default()
+              sub_font = ImageFont.load_default()
+
+          draw.text((w//2, 40), "ReverseReverb", fill=(220, 180, 255), font=title_font, anchor='mt')
+          draw.text((w//2, 75), "Drag to install", fill=(160, 140, 200), font=sub_font, anchor='mt')
+
+          # Bottom labels
+          draw.text((130, 330), "VST3 Plugin", fill=(160, 140, 200), font=sub_font, anchor='mt')
+          draw.text((330, 330), "Standalone App", fill=(160, 140, 200), font=sub_font, anchor='mt')
+          draw.text((130, 350), "→ VST3 Folder", fill=(120, 100, 170), font=sub_font, anchor='mt')
+          draw.text((330, 350), "→ Applications", fill=(120, 100, 170), font=sub_font, anchor='mt')
+          draw.text((530, 350), "Install Targets", fill=(120, 100, 170), font=sub_font, anchor='mt')
+
+          img.save('dmg-background.png')
+          print("DMG background created")
+          PYEOF
+
+      - name: Create professional DMG
+        run: |
+          # Create DMG with drag-to-install layout
+          # First create a temporary DMG with the content
+          mkdir -p dmg-stage
+
+          # Copy built items
+          cp -R dmg-content/ReverseReverb.vst3 dmg-stage/ 2>/dev/null || true
+          cp -R dmg-content/ReverseReverb.app dmg-stage/ 2>/dev/null || true
+
+          # Create symlinks for drag-to-install
+          ln -s "/Library/Audio/Plug-Ins/VST3" dmg-stage/"VST3 Folder"
+          ln -s /Applications dmg-stage/Applications
+
+          # Create the DMG with create-dmg (professional layout)
+          create-dmg \
+            --volname "ReverseReverb Installer" \
+            --background "dmg-background.png" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 80 \
+            --icon "ReverseReverb.vst3" 130 200 \
+            --icon "ReverseReverb.app" 330 200 \
+            --icon "VST3 Folder" 130 320 \
+            --icon "Applications" 530 200 \
+            --hide-extension "ReverseReverb.app" \
+            --no-internet-enable \
+            "ReverseReverb-macOS.dmg" \
+            "dmg-stage/" || true
+
+          # Fallback: if create-dmg failed, create simple DMG
+          if [ ! -f "ReverseReverb-macOS.dmg" ]; then
+            echo "create-dmg failed, creating simple DMG..."
+            hdiutil create -volname "ReverseReverb" \
+              -srcfolder dmg-stage \
+              -ov -format UDZO \
+              ReverseReverb-macOS.dmg
+          fi
+
+          ls -la ReverseReverb-macOS.dmg
 
       - name: Upload macOS VST3
         uses: actions/upload-artifact@v4
