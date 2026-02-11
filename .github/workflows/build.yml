@@ -171,6 +171,7 @@ jobs:
 
       - name: Create DMG background
         run: |
+          pip3 install Pillow --quiet
           python3 << 'PYEOF'
           from PIL import Image, ImageDraw, ImageFont
 
