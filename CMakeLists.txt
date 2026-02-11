@@ -37,6 +37,12 @@ target_sources(ReverseReverb
         Source/PluginEditor.cpp
 )
 
+# Embed background image as binary data
+juce_add_binary_data(ReverseReverbBinaryData
+    SOURCES
+        "Resources/BACKGROUND REVERSE PNG.png"
+)
+
 target_compile_definitions(ReverseReverb
     PUBLIC
         JUCE_WEB_BROWSER=0
@@ -48,6 +54,7 @@ target_compile_definitions(ReverseReverb
 
 target_link_libraries(ReverseReverb
     PRIVATE
+        ReverseReverbBinaryData
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats

@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
 // ========================================
 // Design Color Palette
@@ -238,17 +239,14 @@ ReverseReverbAudioProcessorEditor::ReverseReverbAudioProcessorEditor (ReverseRev
  setResizable (true, true);
  setResizeLimits (560, 500, 1050, 1020);
  
-// // Load background image
-// juce::File imageFile("/Users/liranronekalifa/Library/CloudStorage/Dropbox/reverse reverb.png");
-// if (imageFile.existsAsFile())
-// {
-// backgroundImage = juce::ImageFileFormat::loadFrom(imageFile);
-// DBG("Background image loaded successfully!");
-// }
-// else
-// {
-// DBG("Warning: Background image not found at: " + imageFile.getFullPathName());
-// }
+ // Load background image from embedded binary data
+ backgroundImage = juce::ImageFileFormat::loadFrom(
+     BinaryData::BACKGROUND_REVERSE_PNG_png,
+     BinaryData::BACKGROUND_REVERSE_PNG_pngSize);
+ if (backgroundImage.isValid())
+     DBG("Background image loaded from BinaryData!");
+ else
+     DBG("Warning: Failed to load background image from BinaryData");
  
  // Title Label - REMOVED (commented out for logo space)
  // titleLabel.setText ("Reverse Reverb VST", juce::dontSendNotification);
@@ -761,28 +759,30 @@ void ReverseReverbAudioProcessorEditor::paint (juce::Graphics& g)
 
  float sf = getWidth() / 700.0f;
 
- // Draw logo banner area
- if (logoImage.isValid())
+ // Draw logo banner area (skip if background image already covers it)
+ if (!backgroundImage.isValid())
  {
- // Draw the user's logo/background image in the banner area
- g.drawImage(logoImage, logoArea.toFloat(),
-  juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
- }
- else
- {
- // Placeholder: subtle gradient banner with animated title
- juce::ColourGradient bannerGrad(
-  juce::Colour(0xff0f0a1e), 0, (float)logoArea.getY(),
-  DesignColours::background, 0, (float)logoArea.getBottom(), false);
- bannerGrad.addColour(0.5, juce::Colour(0xff150d28));
- g.setGradientFill(bannerGrad);
- g.fillRect(logoArea);
+     if (logoImage.isValid())
+     {
+         g.drawImage(logoImage, logoArea.toFloat(),
+             juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
+     }
+     else
+     {
+         // Placeholder: subtle gradient banner with animated title
+         juce::ColourGradient bannerGrad(
+             juce::Colour(0xff0f0a1e), 0, (float)logoArea.getY(),
+             DesignColours::background, 0, (float)logoArea.getBottom(), false);
+         bannerGrad.addColour(0.5, juce::Colour(0xff150d28));
+         g.setGradientFill(bannerGrad);
+         g.fillRect(logoArea);
 
- // Subtle bottom edge glow
- float edgeGlow = 0.3f + 0.15f * std::sin(animationPhase * 1.2f);
- auto edgeColour = DesignColours::purple.withAlpha(edgeGlow * 0.4f);
- g.setColour(edgeColour);
- g.fillRect(logoArea.getX(), logoArea.getBottom() - 1, logoArea.getWidth(), 1);
+         // Subtle bottom edge glow
+         float edgeGlow = 0.3f + 0.15f * std::sin(animationPhase * 1.2f);
+         auto edgeColour = DesignColours::purple.withAlpha(edgeGlow * 0.4f);
+         g.setColour(edgeColour);
+         g.fillRect(logoArea.getX(), logoArea.getBottom() - 1, logoArea.getWidth(), 1);
+     }
  }
 
  // Draw tremolo strip border
