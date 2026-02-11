@@ -1,6 +1,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "BinaryData.h"
+
+#if __has_include("BinaryData.h")
+ #include "BinaryData.h"
+ #define HAS_BINARY_DATA 1
+#else
+ #define HAS_BINARY_DATA 0
+#endif
 
 // ========================================
 // Design Color Palette
@@ -239,14 +245,23 @@ ReverseReverbAudioProcessorEditor::ReverseReverbAudioProcessorEditor (ReverseRev
  setResizable (true, true);
  setResizeLimits (560, 500, 1050, 1020);
  
- // Load background image from embedded binary data
+ // Load background image
+#if HAS_BINARY_DATA
+ // CMake build: load from embedded binary data
  backgroundImage = juce::ImageFileFormat::loadFrom(
      BinaryData::BACKGROUND_REVERSE_PNG_png,
      BinaryData::BACKGROUND_REVERSE_PNG_pngSize);
+#else
+ // Projucer/Xcode build: load from Resources folder next to the source
+ auto sourceDir = juce::File(__FILE__).getParentDirectory();
+ auto resFile = sourceDir.getParentDirectory().getChildFile("Resources").getChildFile("BACKGROUND REVERSE PNG.png");
+ if (resFile.existsAsFile())
+     backgroundImage = juce::ImageFileFormat::loadFrom(resFile);
+#endif
  if (backgroundImage.isValid())
-     DBG("Background image loaded from BinaryData!");
+     DBG("Background image loaded successfully!");
  else
-     DBG("Warning: Failed to load background image from BinaryData");
+     DBG("Warning: Background image not loaded");
  
  // Title Label - REMOVED (commented out for logo space)
  // titleLabel.setText ("Reverse Reverb VST", juce::dontSendNotification);
