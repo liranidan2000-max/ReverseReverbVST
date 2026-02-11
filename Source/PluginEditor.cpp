@@ -252,11 +252,31 @@ ReverseReverbAudioProcessorEditor::ReverseReverbAudioProcessorEditor (ReverseRev
      BinaryData::BACKGROUND_REVERSE_PNG_png,
      BinaryData::BACKGROUND_REVERSE_PNG_pngSize);
 #else
- // Projucer/Xcode build: load from Resources folder next to the source
- auto sourceDir = juce::File(__FILE__).getParentDirectory();
- auto resFile = sourceDir.getParentDirectory().getChildFile("Resources").getChildFile("BACKGROUND REVERSE PNG.png");
- if (resFile.existsAsFile())
-     backgroundImage = juce::ImageFileFormat::loadFrom(resFile);
+ // Projucer/Xcode build: search for the image relative to the executable
+ {
+     auto exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+     // Try several common locations
+     juce::Array<juce::File> candidates;
+     // macOS: exe is inside .app/Contents/MacOS/, project root is several levels up
+     candidates.add(exeFile.getParentDirectory().getParentDirectory().getParentDirectory()
+                    .getParentDirectory().getParentDirectory().getParentDirectory()
+                    .getChildFile("Resources").getChildFile("BACKGROUND REVERSE PNG.png"));
+     // Also try relative to the .app bundle
+     candidates.add(exeFile.getParentDirectory().getParentDirectory()
+                    .getChildFile("Resources").getChildFile("BACKGROUND REVERSE PNG.png"));
+     // Direct sibling
+     candidates.add(exeFile.getParentDirectory().getChildFile("Resources")
+                    .getChildFile("BACKGROUND REVERSE PNG.png"));
+
+     for (auto& f : candidates)
+     {
+         if (f.existsAsFile())
+         {
+             backgroundImage = juce::ImageFileFormat::loadFrom(f);
+             if (backgroundImage.isValid()) break;
+         }
+     }
+ }
 #endif
  if (backgroundImage.isValid())
      DBG("Background image loaded successfully!");
