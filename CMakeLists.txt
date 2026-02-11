@@ -24,6 +24,8 @@ juce_add_plugin(ReverseReverb
     FORMATS                VST3 Standalone
     PRODUCT_NAME           "ReverseReverb"
     COPY_PLUGIN_AFTER_BUILD FALSE
+    ICON_BIG               "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
+    ICON_SMALL             "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
 )
 
 # Generate JuceHeader.h (needed because source files use #include <JuceHeader.h>)
