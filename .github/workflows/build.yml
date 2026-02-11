@@ -171,23 +171,28 @@ jobs:
 
       - name: Create DMG background
         run: |
-          # Create background using macOS built-in tools (no Pillow needed)
           python3 -c "
-          import struct, zlib
+          import struct, zlib, math
 
-          w, h = 660, 400
-          # Build raw RGB pixels
+          w, h = 720, 480
           raw = bytearray()
           for y in range(h):
-              raw.append(0)  # PNG filter: None
+              raw.append(0)
               t = y / h
               for x in range(w):
-                  r = int(15 + t * 30)
-                  g = int(5 + t * 15)
-                  b = int(35 + (1 - t) * 45)
+                  # Lighter purple gradient
+                  r = int(45 + t * 35)
+                  g = int(25 + t * 25)
+                  b = int(90 + (1 - t) * 50)
+                  # Subtle center glow
+                  dx = (x - w/2) / (w/2)
+                  dy = (y - h/2) / (h/2)
+                  glow = max(0, 1.0 - math.sqrt(dx*dx + dy*dy))
+                  r = min(255, int(r + glow * 25))
+                  g = min(255, int(g + glow * 15))
+                  b = min(255, int(b + glow * 40))
                   raw.extend([r, g, b])
 
-          # Write minimal PNG
           def chunk(ctype, data):
               c = ctype + data
               return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
@@ -202,8 +207,6 @@ jobs:
 
       - name: Create professional DMG
         run: |
-          # Create DMG with drag-to-install layout
-          # First create a temporary DMG with the content
           mkdir -p dmg-stage
 
           # Copy built items
@@ -214,17 +217,19 @@ jobs:
           ln -s "/Library/Audio/Plug-Ins/VST3" dmg-stage/"VST3 Folder"
           ln -s /Applications dmg-stage/Applications
 
-          # Create the DMG with create-dmg (professional layout)
+          # Layout:
+          #   Row 1: ReverseReverb.vst3 (left)  -->  VST3 Folder (right)
+          #   Row 2: ReverseReverb.app  (left)  -->  Applications (right)
           create-dmg \
             --volname "ReverseReverb Installer" \
             --background "dmg-background.png" \
             --window-pos 200 120 \
-            --window-size 660 400 \
-            --icon-size 80 \
-            --icon "ReverseReverb.vst3" 130 200 \
-            --icon "ReverseReverb.app" 330 200 \
-            --icon "VST3 Folder" 130 320 \
-            --icon "Applications" 530 200 \
+            --window-size 720 480 \
+            --icon-size 90 \
+            --icon "ReverseReverb.vst3" 160 170 \
+            --icon "VST3 Folder" 560 170 \
+            --icon "ReverseReverb.app" 160 340 \
+            --icon "Applications" 560 340 \
             --hide-extension "ReverseReverb.app" \
             --no-internet-enable \
             "ReverseReverb-macOS.dmg" \
