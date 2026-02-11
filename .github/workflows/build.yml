@@ -1,4 +1,4 @@
-name: Build Windows VST3 & Installer
+name: Build VST3 & Installers
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ==========================================
+  # Windows Build + NSIS Installer
+  # ==========================================
   build-windows:
     runs-on: windows-latest
 
@@ -112,3 +115,84 @@ jobs:
         with:
           name: ReverseReverb-Windows-Installer
           path: ReverseReverb-Setup.exe
+
+  # ==========================================
+  # macOS Build + DMG Installer
+  # ==========================================
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Build
+        run: cmake --build build --config Release --target ReverseReverb_VST3 ReverseReverb_Standalone
+
+      - name: Find built artifacts
+        run: |
+          echo "=== Looking for VST3 ==="
+          find build -name "*.vst3" -type d
+          echo "=== Looking for .app ==="
+          find build -name "*.app" -type d
+
+      - name: Prepare DMG content
+        run: |
+          mkdir -p dmg-content
+
+          # Copy VST3 bundle
+          VST3_PATH=$(find build -name "ReverseReverb.vst3" -type d | head -1)
+          if [ -n "$VST3_PATH" ]; then
+            cp -R "$VST3_PATH" dmg-content/
+            echo "VST3 copied: $VST3_PATH"
+          fi
+
+          # Copy Standalone .app bundle
+          APP_PATH=$(find build -name "ReverseReverb.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            cp -R "$APP_PATH" dmg-content/
+            echo "App copied: $APP_PATH"
+          fi
+
+          # Create installation instructions
+          cat > dmg-content/INSTALL.txt << 'HEREDOC'
+          ReverseReverb - Installation Guide
+          ===================================
+
+          VST3 Plugin:
+            Copy "ReverseReverb.vst3" to:
+            /Library/Audio/Plug-Ins/VST3/
+
+          Standalone App:
+            Drag "ReverseReverb.app" to your Applications folder.
+
+          After installing, restart your DAW to detect the plugin.
+          HEREDOC
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "ReverseReverb" \
+            -srcfolder dmg-content \
+            -ov -format UDZO \
+            ReverseReverb-macOS.dmg
+
+      - name: Upload macOS VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-macOS-VST3
+          path: dmg-content/ReverseReverb.vst3
+
+      - name: Upload macOS Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-macOS-Standalone
+          path: dmg-content/ReverseReverb.app
+
+      - name: Upload macOS DMG Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReverseReverb-macOS-DMG
+          path: ReverseReverb-macOS.dmg
